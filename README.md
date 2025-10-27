@@ -1,4 +1,4 @@
-# BookOutLoud
+# booq
 
 *A books-to-audio accessibility tool for children with Visual Processing Disorders (VPD)*
 
