@@ -1,9 +1,11 @@
 import time
 import torch
+import nltk
 import matplotlib.pyplot as plt
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from src.preprocessing.preprocessing_utils import clean_captions_txt, preprocess_dataset
 from src.training.encoders import EncoderCNN, DecoderRNN
+nltk.download('punkt')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 smooth = SmoothingFunction().method1

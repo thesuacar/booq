@@ -1,6 +1,8 @@
 from pathlib import Path
 from src.training.training_utils import train
 import kagglehub
+import nltk
+nltk.download('punkt')
 
 # Download latest version of Flickr8k
 dataset_path = kagglehub.dataset_download("adityajn105/flickr8k")
