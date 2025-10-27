@@ -1,0 +1,20 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Dataset and results
+data/
+outputs/
+logs/
+
+# Model weights
+*.pt
+*.pth
+
+# OS junk
+.DS_Store
