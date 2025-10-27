@@ -1,11 +1,23 @@
 from pathlib import Path
-
 from src.training.training_utils import train
+import kagglehub
+
+# Download latest version of Flickr8k
+dataset_path = kagglehub.dataset_download("adityajn105/flickr8k")
+dataset_path = Path(dataset_path)
+
+print("Dataset downloaded to:", dataset_path)
 
 def main():
-    project_root = Path(__file__).resolve().parents[2]
-    image_dir = project_root / "data" / "archive30k" / "Images"
-    caption_file = project_root / "data" / "archive30k" / "captions.txt"
+    # Correct dataset paths
+    image_dir = dataset_path / "Images"
+    caption_file = dataset_path / "captions.txt"
+
+    # Validate paths
+    if not image_dir.exists():
+        raise FileNotFoundError(f"Image directory not found: {image_dir}")
+    if not caption_file.exists():
+        raise FileNotFoundError(f"Captions file not found: {caption_file}")
 
     train(
         caption_txt=str(caption_file),
@@ -17,7 +29,6 @@ def main():
         num_epochs=10,
         eval_every=1,
     )
-
 
 if __name__ == "__main__":
     main()
