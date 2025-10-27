@@ -1,4 +1,4 @@
-# BookOutLoud
+# booq
 
 *A books-to-audio accessibility tool for children with Visual Processing Disorders (VPD)*
 
@@ -28,24 +28,16 @@ It is designed to help children with Visual Processing Disorders (VPD) by provid
 To get the project code from GitHub, open your terminal and run:
 
 ```bash
-git clone https://github.com/thesuacar/BookOutLoud.git
+git clone https://github.com/thesuacar/booq.git
 ```
 
 Then move into the project folder:
 
 ```bash
-cd BookOutLoud
+cd booq
 ```
 
-### 2. Create a Virtual Environment (Python)
-
-```bash
-python -m venv venv
-source venv/bin/activate     # Mac/Linux
-venv\Scripts\activate        # Windows
-```
-
-### 3. Install Dependencies
+### 2. Install Dependencies
 
 Install all necessary libraries:
 
