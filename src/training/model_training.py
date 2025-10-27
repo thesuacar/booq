@@ -2,7 +2,12 @@ from src.preprocessing.preprocessing_utils import clean_captions_txt, preprocess
 from src.training.training_utils import train, evaluate_bleu
 from src.training.encoders import EncoderCNN, DecoderRNN
 import torch
+import kagglehub
 
+# Download latest version
+path = kagglehub.dataset_download("adityajn105/flickr8k")
+
+print("Path to dataset files:", path)
 
 def main():
 
