@@ -50,9 +50,12 @@ def train(
     eval_every=10,
 ):
 
-    print(" Loading & preprocessing data...")
+    print("Loading & preprocessing data...")
     df = clean_captions_txt(image_dir, caption_txt)
     train_ds, dev_ds, test_ds, vocab = preprocess_dataset(df, image_dir)
+
+    if len(train_ds) == 0:
+        raise ValueError("No training samples were created. Check that your captions reference images present in the dataset.")
 
     inv_vocab = {v: k for k, v in vocab.items()}
     vocab_size = len(vocab)
@@ -77,6 +80,8 @@ def train(
         start_epoch = time.time()
         encoder.train()
         decoder.train()
+        running_loss = 0.0
+        num_batches = 0
 
         for imgs, caps, txt in train_loader:
             imgs, caps = imgs.to(device), caps.to(device)
@@ -88,12 +93,16 @@ def train(
             loss.backward()
             optimizer.step()
 
+            running_loss += loss.item()
+            num_batches += 1
+
         epoch_time = time.time() - start_epoch
+        avg_loss = running_loss / max(1, num_batches)
 
         if epoch == 1 or epoch % eval_every == 0 or epoch == num_epochs:
             bleu = evaluate_bleu(dev_loader, encoder, decoder, inv_vocab, device)
 
-            epoch_losses.append(loss.item())
+            epoch_losses.append(avg_loss)
             epoch_bleus.append(bleu)
             epoch_times.append(epoch_time)
             epoch_list.append(epoch)
@@ -103,18 +112,18 @@ def train(
                 'encoder_state': encoder.state_dict(),
                 'decoder_state': decoder.state_dict(),
                 'optimizer_state': optimizer.state_dict(),
-                'loss': loss.item()
+                'loss': avg_loss
             }, f'checkpoint_epoch_{epoch}.pth')
 
-            print(f"Epoch {epoch}/{num_epochs} - Loss: {loss.item():.4f} | BLEU: {bleu:.4f} | Time: {epoch_time:.2f}s")
+            print(f"Epoch {epoch}/{num_epochs} - Loss: {avg_loss:.4f} | BLEU: {bleu:.4f} | Time: {epoch_time:.2f}s")
 
-    print("\n Training Complete")
+    print("\n🎯 Training Complete")
     print(f"Total time (s): {sum(epoch_times):.2f}")
 
     best_epoch = epoch_list[epoch_bleus.index(max(epoch_bleus))]
-    print(f"Best Epoch: {best_epoch} (BLEU: {max(epoch_bleus):.4f})")
+    print(f"🏆 Best Epoch: {best_epoch} (BLEU: {max(epoch_bleus):.4f})")
 
-    # Plotting
+    #Plotting
     plt.figure(figsize=(10, 4))
 
     plt.subplot(1, 2, 1)
