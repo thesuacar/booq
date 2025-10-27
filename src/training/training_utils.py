@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from src.preprocessing.preprocessing_utils import clean_captions_txt, preprocess_dataset
 from src.training.encoders import EncoderCNN, DecoderRNN
+import nltk
+nltk.download('punkt')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 smooth = SmoothingFunction().method1
@@ -117,11 +119,11 @@ def train(
 
             print(f"Epoch {epoch}/{num_epochs} - Loss: {avg_loss:.4f} | BLEU: {bleu:.4f} | Time: {epoch_time:.2f}s")
 
-    print("\n🎯 Training Complete")
+    print("\n Training Complete")
     print(f"Total time (s): {sum(epoch_times):.2f}")
 
     best_epoch = epoch_list[epoch_bleus.index(max(epoch_bleus))]
-    print(f"🏆 Best Epoch: {best_epoch} (BLEU: {max(epoch_bleus):.4f})")
+    print(f"Best Epoch: {best_epoch} (BLEU: {max(epoch_bleus):.4f})")
 
     #Plotting
     plt.figure(figsize=(10, 4))
