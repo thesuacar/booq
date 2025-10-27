@@ -1,8 +1,6 @@
-from src.preprocessing.preprocessing_utils import clean_captions_txt, preprocess_dataset
-from src.training.training_utils import train, evaluate_bleu
-from src.training.encoders import EncoderCNN, DecoderRNN
-import torch
+from pathlib import Path
 
+from src.training.training_utils import train
 
 def main():
     project_root = Path(__file__).resolve().parents[2]
