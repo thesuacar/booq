@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from collections import Counter
+import nltk
 from nltk.tokenize import TreebankWordTokenizer, word_tokenize
 
 class FlickrDataset(Dataset):
@@ -141,17 +142,49 @@ def preprocess_dataset(df, images_path, vocab_size=1000, sample_size=None):
                              (0.229, 0.224, 0.225))
     ])
 
-    def safe_tokenize(text):
-        """Tokenize text, preferring punkt if it is already installed."""
-        if not hasattr(safe_tokenize, "_tokenizer"):
-            tokenizer = TreebankWordTokenizer().tokenize
+    def ensure_punkt():
+        """Ensure the NLTK punkt resources are available before tokenizing."""
+        if hasattr(ensure_punkt, "_has_punkt"):
+            return ensure_punkt._has_punkt
+
+        resources = [
+            ("punkt", "tokenizers/punkt/english.pickle"),
+        ]
+        missing = []
+
+        for name, path in resources:
             try:
-                word_tokenize("NLTK probe")
+                nltk.data.find(path)
             except LookupError:
-                print("NLTK 'punkt' tokenizer not available. Falling back to TreebankWordTokenizer.")
+                missing.append((name, path))
+
+        if missing:
+            for name, _ in missing:
+                print(f"NLTK '{name}' resource not available. Attempting download...")
+                try:
+                    nltk.download(name, quiet=True, raise_on_error=True)
+                except Exception as exc:
+                    print(f"Failed to download NLTK '{name}': {exc}")
+
+        ensure_punkt._has_punkt = True
+        for name, path in resources:
+            try:
+                nltk.data.find(path)
+            except LookupError as exc:
+                print(f"Still missing NLTK resource '{name}': {exc}")
+                ensure_punkt._has_punkt = False
+                break
+
+        return ensure_punkt._has_punkt
+
+    def safe_tokenize(text):
+        """Tokenize text, preferring punkt and downloading it if missing."""
+        if not hasattr(safe_tokenize, "_tokenizer"):
+            if ensure_punkt():
+                safe_tokenize._tokenizer = word_tokenize
             else:
-                tokenizer = word_tokenize
-            safe_tokenize._tokenizer = tokenizer
+                print("Falling back to TreebankWordTokenizer.")
+                safe_tokenize._tokenizer = TreebankWordTokenizer().tokenize
 
         return safe_tokenize._tokenizer(text)
 

@@ -1,5 +1,6 @@
 import time
 import torch
+import nltk
 import matplotlib.pyplot as plt
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from src.preprocessing.preprocessing_utils import clean_captions_txt, preprocess_dataset
