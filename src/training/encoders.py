@@ -1,36 +1,45 @@
-#CNN and RNN encoder/decoder here
-#before using: from src.encoders import EncoderCNN, DecoderRNN
+# src/training/encoders.py
 import torch
 import torch.nn as nn
 import torchvision.models as models
 
+
 class EncoderCNN(nn.Module):
-    def __init__(self, embed_size):
+    def __init__(self, embed_size: int):
         super().__init__()
+
         resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-        modules = list(resnet.children())[:-1]
-        self.resnet = nn.Sequential(*modules)
-        self.linear = nn.Linear(resnet.fc.in_features, embed_size)
-    def forward(self, images):
-        with torch.no_grad():
-            features = self.resnet(images).squeeze()
-        features = self.linear(features)
-        return features
+        self.backbone = nn.Sequential(*list(resnet.children())[:-1])
+
+        for p in self.backbone.parameters():
+            p.requires_grad = False
+
+        self.fc = nn.Linear(resnet.fc.in_features, embed_size)
+        self.norm = nn.LayerNorm(embed_size)
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        with torch.inference_mode():
+            features = self.backbone(images).squeeze()
+
+        return self.norm(self.fc(features))
+
 
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers=1, dropout=0.3):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
-        self.linear = nn.Linear(hidden_size, vocab_size)
+
+        self.embed = nn.Embedding(vocab_size, embed_size, padding_idx=0)
+        self.lstm = nn.LSTM(
+            embed_size,
+            hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0,
+            batch_first=True,
+        )
+        self.fc = nn.Linear(hidden_size, vocab_size)
+
     def forward(self, features, captions):
         embeddings = self.embed(captions)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        hiddens,_ = self.lstm(embeddings)
-        outputs = self.linear(hiddens)
-        return outputs
-
-
-
-
-
+        embeddings = torch.cat((features.unsqueeze(1), embeddings), dim=1)
+        outputs, _ = self.lstm(embeddings)
+        return self.fc(outputs)
