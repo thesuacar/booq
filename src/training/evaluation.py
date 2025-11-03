@@ -8,7 +8,7 @@ def _greedy_decode_batch(encoder, decoder, images, *, device, max_length, sos_id
     encoder.eval()
     decoder.eval()
 
-    with torch.no_grad(), torch.cuda.amp.(device.type == "cuda"):
+    with torch.no_grad(), torch.amp.autocast('cuda',device.type == "cuda"):
         features = encoder(images.to(device))
         inputs = features.unsqueeze(1)
         states = None

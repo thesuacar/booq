@@ -52,7 +52,7 @@ def train_with_config(cfg: TrainConfig):
     save_dir = Path(cfg.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    print("\n🔄 Loading dataset...")
+    print("\n Loading dataset...")
     df = clean_captions_txt(cfg.image_dir, cfg.caption_txt)
     train_ds, dev_ds, _, vocab = preprocess_dataset(df, cfg.image_dir, vocab_size=cfg.vocab_size)
 
@@ -70,7 +70,7 @@ def train_with_config(cfg: TrainConfig):
     best_bleu = -1
     patience_counter = 0
 
-    print("\n🚀 Training started...")
+    print("\n Training started...")
 
     for epoch in range(1, cfg.num_epochs + 1):
         encoder.train()
@@ -86,9 +86,6 @@ def train_with_config(cfg: TrainConfig):
             feats = encoder(imgs)
             outputs = decoder(feats, caps[:, :-1])  # predict next token
 
-            # ------------------------------------------------------------
-            # ✅ FIX: drop first output (image-token position)
-            # ------------------------------------------------------------
             outputs = outputs[:, 1:, :]  # (batch, seq_len, vocab)
 
             loss = loss_fn(
@@ -136,17 +133,14 @@ def train_with_config(cfg: TrainConfig):
             else:
                 patience_counter += 1
 
-            # -------------------------------
-            # ✅ EARLY STOPPING
-            # -------------------------------
             if patience_counter >= cfg.patience:
-                print(f"\n⛔ Early stopping triggered. Best BLEU = {best_bleu:.4f}")
+                print(f"\n Early stopping triggered. Best BLEU = {best_bleu:.4f}")
                 break
 
     # --------------------------------------------------------
     # Save final full model + vocab as joblib
     # --------------------------------------------------------
-    print("\n💾 Saving final model (joblib)...")
+    print("\n Saving final model...")
 
     joblib.dump(
         {
@@ -157,7 +151,4 @@ def train_with_config(cfg: TrainConfig):
         save_dir / "model.joblib",
     )
 
-    print("✅ Training completed.\n")
-
-
-# END FILE
+    print("Training completed.\n")
