@@ -1,7 +1,7 @@
 # src/training/training_utils.py
 from src.preprocessing.preprocessing_utils import preprocess_dataset, clean_captions_txt
 from src.training.encoders import EncoderCNN, DecoderRNN
-from src.training.bleu import evaluate_bleu
+from src.training.evaluation import evaluate_bleu
 
 import torch
 from torch.utils.data import DataLoader
