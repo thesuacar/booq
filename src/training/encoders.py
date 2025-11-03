@@ -18,10 +18,13 @@ class EncoderCNN(nn.Module):
         self.norm = nn.LayerNorm(embed_size)
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        with torch.inference_mode():
+        # backbone frozen so no gradients needed, but we cannot use inference_mode()
+        with torch.no_grad():
             features = self.backbone(images).squeeze()
 
-        return self.norm(self.fc(features))
+        features = self.fc(features)
+        return self.norm(features)
+
 
 
 class DecoderRNN(nn.Module):
