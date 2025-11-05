@@ -1,1 +1,0 @@
-#processes pdf for image captioning

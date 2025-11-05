@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 from gtts import gTTS
 
-try:  # Optional dependency for notebook playback
-    from IPython.display import Audio, display
-except ImportError:  # pragma: no cover - IPython is optional
+# --- Optional IPython import for notebook playback ---
+try:
+    from IPython.display import Audio, display  # type: ignore
+except ImportError:
     Audio = None  # type: ignore
     display = None  # type: ignore
 
@@ -27,7 +28,9 @@ class AudioClip:
     def play(self, autoplay: bool = True) -> None:
         """Play the clip inline in notebook environments if IPython is available."""
         if Audio is None or display is None:
-            raise RuntimeError("IPython is not installed; playback is unavailable.")
+            raise RuntimeError(
+                "IPython is not installed; playback is unavailable outside notebook environments."
+            )
         display(Audio(filename=str(self.path), autoplay=autoplay))
 
 
@@ -63,10 +66,14 @@ def synthesize_captions(
         filename = f"{prefix}_{index + 1}.mp3"
         file_path = output_path / filename
 
-        tts = gTTS(text=caption, lang=lang)
-        tts.save(str(file_path))
-        elapsed = time.perf_counter() - start
+        try:
+            tts = gTTS(text=caption, lang=lang)
+            tts.save(str(file_path))
+        except Exception as e:
+            print(f"[ERROR] Failed to generate audio for caption {index + 1}: {e}")
+            continue
 
+        elapsed = time.perf_counter() - start
         clips.append(AudioClip(caption=caption, path=file_path, generation_time=elapsed))
 
     return clips
@@ -85,8 +92,8 @@ def export_generation_report(
     *,
     output_path: Path,
     extra_metadata: Optional[dict] = None,
-) -> None:
-    """Persist audio generation metadata to disk as JSON."""
+) -> dict:
+    """Persist audio generation metadata to disk as JSON and return the payload."""
     payload = {
         "clips": [
             {
@@ -104,3 +111,5 @@ def export_generation_report(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
+
+    return payload
