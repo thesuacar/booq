@@ -60,7 +60,7 @@ Here are the most useful Git commands for new team members:
 | Stage all changes   | `git add .`                                 |
 | Commit changes      | `git commit -m "Describe what you changed"` |
 | Push (submit) to GitHub      | `git push origin <branch-name>`             |
-| Pull (receive) latest updates from GitHub | `git pull origin main`                      |
+| Pull (receive) latest updates from GitHub | `git pull origin master`                      |
 
 ---
 
