@@ -78,7 +78,7 @@ Here are the most useful Git commands for new team members:
    git push origin feature/your-feature-name
    ```
 
-Developed with Flickr30k Dataset
-Flickr Image dataset. (2018, June 12). Kaggle. https://www.kaggle.com/datasets/hsankesara/flickr-image-dataset
+Developed with Flickr8k Dataset
+Flickr 8K Dataset. (2020, April 27). Kaggle. https://www.kaggle.com/datasets/adityajn105/flickr8k
 
 
