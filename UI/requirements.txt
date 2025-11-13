@@ -1,0 +1,28 @@
+# Core Streamlit and Web Framework
+streamlit>=1.28.0
+
+# PDF Processing
+PyPDF2>=3.0.0
+
+# Audio Processing
+gtts>=2.4.0
+pydub>=0.25.1
+
+# Language Detection
+langdetect>=1.0.9
+
+# Optional: For Advanced AI Models
+# Uncomment if using transformer-based TTS models
+# transformers>=4.30.0
+# torch>=2.0.0
+# torchaudio>=2.0.0
+
+# Optional: For audio file manipulation
+soundfile>=0.12.1
+librosa>=0.10.0
+
+# Utility
+pathlib>=1.0.1
+
+# HTTP client for interfacing with FastAPI services
+httpx>=0.27.0

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
@@ -66,15 +67,28 @@ def synthesize_captions(
         filename = f"{prefix}_{index + 1}.mp3"
         file_path = output_path / filename
 
-        try:
-            tts = gTTS(text=caption, lang=lang)
-            tts.save(str(file_path))
-        except Exception as e:
-            print(f"[ERROR] Failed to generate audio for caption {index + 1}: {e}")
+        success = False
+        for attempt in range(1, GTTS_MAX_ATTEMPTS + 1):
+            try:
+                tts = gTTS(text=caption, lang=lang)
+                tts.save(str(file_path))
+                success = True
+                break
+            except Exception as e:
+                if attempt == GTTS_MAX_ATTEMPTS:
+                    print(f"[ERROR] Failed to generate audio for caption {index + 1}: {e}")
+                else:
+                    delay = GTTS_RETRY_BASE_DELAY * attempt
+                    print(f"[WARN] gTTS attempt {attempt} failed for caption {index + 1}. Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+        if not success:
             continue
 
         elapsed = time.perf_counter() - start
         clips.append(AudioClip(caption=caption, path=file_path, generation_time=elapsed))
+
+        if GTTS_THROTTLE_DELAY > 0:
+            time.sleep(GTTS_THROTTLE_DELAY)
 
     return clips
 
@@ -113,3 +127,6 @@ def export_generation_report(
         json.dump(payload, handle, indent=2)
 
     return payload
+GTTS_MAX_ATTEMPTS = int(os.getenv("BOOQ_TTS_MAX_ATTEMPTS", "3"))
+GTTS_RETRY_BASE_DELAY = float(os.getenv("BOOQ_TTS_RETRY_BASE_DELAY", "2.0"))
+GTTS_THROTTLE_DELAY = float(os.getenv("BOOQ_TTS_THROTTLE_DELAY", "1.0"))
