@@ -36,6 +36,8 @@ def main():
 
     train_with_config(config)
 
+    print("Training complete!, model saved to 'runs/' directory.")
+
 
 if __name__ == "__main__":
     main()

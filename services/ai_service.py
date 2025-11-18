@@ -14,9 +14,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.audio.audio_engine import AudioClip, export_generation_report, synthesize_captions
-from src.image_captioning.captioning_utils import ImageCaptioner
-from src.preprocessing.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
+from src.utils.audio_engine import AudioClip, export_generation_report, synthesize_captions
+from src.utils.captioning_utils import ImageCaptioner
+from src.utils.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
 
 STORAGE_ROOT = Path(os.getenv("BOOQ_STORAGE_ROOT", "storage"))
 USE_FAKE_TTS = os.getenv("BOOQ_USE_FAKE_TTS", "true").lower() in {"1", "true", "yes"}

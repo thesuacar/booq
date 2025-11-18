@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.preprocessing.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
+from src.utils.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
 
 
 def test_extract_txt_from_pdf_returns_text_for_documents_with_text(pdf_catalog) -> None:

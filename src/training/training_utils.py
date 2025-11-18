@@ -19,9 +19,9 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from torch.nn.utils import clip_grad_norm_
 
-from src.preprocessing.preprocessing_utils import preprocess_dataset, clean_captions_txt
-from src.training.encoders import EncoderCNN, DecoderRNN
-from src.training.evaluation import evaluate_bleu
+from AI.src.preprocessing.preprocessing_utils import preprocess_dataset, clean_captions_txt
+from AI.src.training.encoders import EncoderCNN, DecoderRNN
+from AI.src.training.evaluation import evaluate_bleu
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
