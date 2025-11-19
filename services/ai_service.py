@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from src.utils.audio_engine import AudioClip, export_generation_report, synthesize_captions
+from src.audio_engine import AudioClip, export_generation_report, synthesize_captions
 from src.utils.captioning_utils import ImageCaptioner
 from src.utils.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
 

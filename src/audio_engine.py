@@ -1,31 +1,128 @@
+"""
+Audio Engine for TTS (pyttsx3) - WAV output
+Supports: voice selection, speed adjustments, caching
+"""
+
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional
 import hashlib
 import logging
+from pathlib import Path
+from typing import Optional, Dict
 from tempfile import NamedTemporaryFile
+import os
 
-import pyttsx3  
+import pyttsx3
 
 logger = logging.getLogger(__name__)
 
 
 class AudioEngine:
     """
-    Offline TTS engine using pyttsx3.
+    Thin wrapper around pyttsx3 that:
 
-    Generates WAV audio and supports simple caching based on text + settings.
+      - Lists available voices
+      - Applies selected voice
+      - Applies speed (rate) multiplier
+      - Caches generated WAV files on disk
+
+    It does NOT know anything about:
+      - PDFs
+      - jobs
+      - users
+      - HTTP
     """
 
     def __init__(self, cache_dir: Path | str = Path("data/audio_cache")) -> None:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialise engine once (sync & single-process use)
+        # Single engine instance
         self.engine = pyttsx3.init()
+        self._default_rate = self.engine.getProperty("rate")
 
-    # --------- Public API ---------
+        self.available_voices: Dict[str, str] = {}
+        self._load_voices()
+
+    # -------------------------------------------------------------------------
+    # Internal helpers
+    # -------------------------------------------------------------------------
+
+    def _load_voices(self) -> None:
+        try:
+            for v in self.engine.getProperty("voices"):
+                # Use voice.name as key, voice.id as internal id
+                name = v.name or v.id
+                self.available_voices[name] = v.id
+            logger.info("Loaded %d TTS voices", len(self.available_voices))
+        except Exception as exc:  # pragma: no cover
+            logger.error("Failed to load system TTS voices: %s", exc)
+
+    def _select_voice(self, voice_name: Optional[str]) -> None:
+        """Select a voice by its name (as exposed to the UI)."""
+        if not voice_name:
+            return
+
+        voice_id = self.available_voices.get(voice_name)
+        if voice_id:
+            try:
+                self.engine.setProperty("voice", voice_id)
+            except Exception as exc:  # pragma: no cover
+                logger.error("Failed to set voice '%s': %s", voice_name, exc)
+        else:
+            logger.warning("Requested voice '%s' not found. Using default.", voice_name)
+
+    def _set_speed(self, speed: float) -> None:
+        """
+        Apply a speed multiplier to the engine's rate.
+
+        speed: 1.0 = normal, 2.0 = faster, 0.5 = slower.
+        """
+        try:
+            speed = float(speed)
+        except (TypeError, ValueError):
+            speed = 1.0
+
+        # Clamp to a safe range
+        speed = max(0.5, min(2.0, speed))
+        new_rate = int(self._default_rate * speed)
+        try:
+            self.engine.setProperty("rate", new_rate)
+        except Exception as exc:  # pragma: no cover
+            logger.error("Failed to set TTS rate: %s", exc)
+
+    @staticmethod
+    def _make_cache_key(text: str, language: str, voice: Optional[str], speed: float) -> str:
+        """
+        Build a stable hash key from the input settings.
+        """
+        m = hashlib.sha256()
+        payload = f"{language}|{voice or ''}|{speed}|{text}".encode("utf-8")
+        m.update(payload)
+        return m.hexdigest()
+
+    def _load_from_cache(self, key: str) -> Optional[bytes]:
+        cache_file = self.cache_dir / f"{key}.wav"
+        if cache_file.exists():
+            try:
+                with cache_file.open("rb") as f:
+                    return f.read()
+            except Exception as exc:
+                logger.error("Failed to read cache file: %s", exc)
+        return None
+
+    def _save_to_cache(self, key: str, audio_bytes: bytes) -> None:
+        cache_file = self.cache_dir / f"{key}.wav"
+        try:
+            with cache_file.open("wb") as f:
+                f.write(audio_bytes)
+            logger.info("Saved audio to cache: %s", cache_file)
+        except Exception as exc:
+            logger.error("Failed to save cache file %s: %s", cache_file, exc)
+
+    # -------------------------------------------------------------------------
+    # PUBLIC: Generate audio with caching
+    # -------------------------------------------------------------------------
 
     def generate_audio(
         self,
@@ -36,124 +133,38 @@ class AudioEngine:
         speed: float = 1.0,
     ) -> bytes:
         """
-        Generate WAV audio for the given text.
+        Generate WAV audio from text, using optional voice + speed,
+        with on-disk caching.
 
-        Args:
-            text: Input text.
-            language: Kept for API compatibility (pyttsx3 uses system voices).
-            voice: Optional substring of desired voice name.
-            speed: Multiplier for speaking rate (1.0 = default).
-
-        Returns:
-            WAV audio bytes.
+        Returns raw WAV bytes.
         """
         if not text.strip():
-            logger.warning("generate_audio called with empty text")
-            return b""
+            raise ValueError("Cannot generate audio from empty text")
 
-        cache_key = self._generate_cache_key(text, language, voice, speed)
-        cached = self._get_from_cache(cache_key)
+        cache_key = self._make_cache_key(text, language, voice, speed)
+        cached = self._load_from_cache(cache_key)
         if cached is not None:
-            logger.info("Using cached audio for key %s", cache_key)
+            logger.info("Returning cached audio for key=%s", cache_key)
             return cached
 
-        logger.info("Generating new audio (len=%d chars)", len(text))
-        audio_bytes = self._synthesise(text, voice=voice, speed=speed)
-        self._save_to_cache(cache_key, audio_bytes)
-        return audio_bytes
-
-    # --------- Internal helpers ---------
-
-    def _synthesise(
-        self,
-        text: str,
-        *,
-        voice: Optional[str] = None,
-        speed: float = 1.0,
-    ) -> bytes:
-        """
-        Perform the actual TTS call using pyttsx3 and return WAV bytes.
-        """
-        # Configure engine
-        if voice:
-            self._set_voice(voice)
-
+        # Apply voice + speed to engine
+        self._select_voice(voice)
         self._set_speed(speed)
 
-        # pyttsx3 only writes to file, so use a temporary WAV
-        with NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            temp_path = Path(tmp.name)
+        # Use a temporary wav file, then read back
+        with NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
 
         try:
-            self.engine.save_to_file(text, str(temp_path))
+            self.engine.save_to_file(text, str(tmp_path))
             self.engine.runAndWait()
 
-            with temp_path.open("rb") as f:
-                audio_bytes = f.read()
-
-            return audio_bytes
+            audio_bytes = tmp_path.read_bytes()
         finally:
             try:
-                temp_path.unlink(missing_ok=True)
-            except Exception:  # pragma: no cover - best effort cleanup
+                os.remove(tmp_path)
+            except OSError:
                 pass
 
-    def _set_voice(self, voice_name: str) -> None:
-        """
-        Try to select a voice whose name contains the given substring (case-insensitive).
-        """
-        try:
-            voices = self.engine.getProperty("voices")
-            for v in voices:
-                if voice_name.lower() in (v.name or "").lower():
-                    self.engine.setProperty("voice", v.id)
-                    logger.info("Selected voice: %s", v.name)
-                    return
-            logger.warning("Requested voice '%s' not found; using default", voice_name)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.exception("Error while setting voice '%s': %s", voice_name, exc)
-
-    def _set_speed(self, speed: float) -> None:
-        """
-        Adjust the speaking rate based on a multiplier.
-        """
-        try:
-            base_rate = self.engine.getProperty("rate")
-            # Clamp speed to a reasonable range
-            speed = max(0.5, min(speed, 2.0))
-            new_rate = int(base_rate * speed)
-            self.engine.setProperty("rate", new_rate)
-            logger.info("Set speech rate to %d (base=%d, speed=%.2f)", new_rate, base_rate, speed)
-        except Exception as exc:  # pragma: no cover
-            logger.exception("Error while setting speed: %s", exc)
-
-    # --------- Caching ---------
-
-    def _generate_cache_key(
-        self,
-        text: str,
-        language: str,
-        voice: Optional[str],
-        speed: float,
-    ) -> str:
-        payload = f"{language}|{voice}|{speed}|{text}"
-        return hashlib.md5(payload.encode("utf-8")).hexdigest()
-
-    def _get_from_cache(self, key: str) -> Optional[bytes]:
-        cache_file = self.cache_dir / f"{key}.wav"
-        if cache_file.exists():
-            try:
-                with cache_file.open("rb") as f:
-                    return f.read()
-            except Exception as exc:  # pragma: no cover
-                logger.exception("Failed to read cache file %s: %s", cache_file, exc)
-        return None
-
-    def _save_to_cache(self, key: str, audio_bytes: bytes) -> None:
-        cache_file = self.cache_dir / f"{key}.wav"
-        try:
-            with cache_file.open("wb") as f:
-                f.write(audio_bytes)
-            logger.info("Saved audio to cache: %s", cache_file)
-        except Exception as exc:  # pragma: no cover
-            logger.exception("Failed to save cache file %s: %s", cache_file, exc)
+        self._save_to_cache(cache_key, audio_bytes)
+        return audio_bytes

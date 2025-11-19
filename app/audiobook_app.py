@@ -5,8 +5,9 @@ Distributed architecture: talks to orchestrator_service via HTTP.
 
 from __future__ import annotations
 
-import os
+import base64
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -15,16 +16,19 @@ from typing import Dict, Any
 import requests
 import streamlit as st
 from streamlit.components.v1 import html
+import sys
 
-# ---------- CONFIG ----------
+# Add project root to PYTHONPATH
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
 
-ORCHESTRATOR_URL = "http://localhost:8001"  # FastAPI orchestrator base URL
+from config import *
 
 # ---------- PAGE CONFIG ----------
 
 st.set_page_config(
-    page_title="booq - Audiobook Creator",
-    page_icon="🎧",
+    page_title=APP_NAME,
+    page_icon=APP_ICON,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -32,71 +36,71 @@ st.set_page_config(
 # ---------- ACCESSIBLE CSS ----------
 
 st.markdown(
-    """
+    f"""
     <style>
-    html, body, [class*="css"] {
-        font-size: 18px !important;
-    }
-    h1 {
-        font-size: 48px !important;
+    html, body, [class*="css"] {{
+        font-size: {BASE_FONT_SIZE}px !important;
+    }}
+    h1 {{
+        font-size: {HEADING_1_SIZE}px !important;
         font-weight: bold !important;
         margin-bottom: 30px !important;
-    }
-    h2 {
-        font-size: 36px !important;
+    }}
+    h2 {{
+        font-size: {HEADING_2_SIZE}px !important;
         font-weight: bold !important;
         margin-bottom: 20px !important;
-    }
-    h3 {
-        font-size: 28px !important;
+    }}
+    h3 {{
+        font-size: {HEADING_3_SIZE}px !important;
         font-weight: bold !important;
-    }
-    .stButton > button {
-        font-size: 24px !important;
+    }}
+    .stButton > button {{
+        font-size: {BUTTON_FONT_SIZE}px !important;
         padding: 20px 40px !important;
         font-weight: bold !important;
         border-radius: 10px !important;
-        min-height: 60px !important;
-    }
-    .stTextInput > div > div > input {
+        min-height: {BUTTON_MIN_HEIGHT}px !important;
+    }}
+    .stTextInput > div > div > input {{
         font-size: 22px !important;
         padding: 15px !important;
         min-height: 50px !important;
-    }
-    .stSelectbox > div > div > select {
+    }}
+    .stSelectbox > div > div > select {{
         font-size: 22px !important;
         padding: 15px !important;
-    }
-    .stFileUploader > div {
+    }}
+    .stFileUploader > div {{
         font-size: 20px !important;
-    }
-    .stApp {
-        background-color: #FFFFFF;
-        color: #000000;
-    }
-    .book-card {
-        border: 3px solid #333;
+    }}
+    .stApp {{
+        background-color: {COLORS['background']};
+        color: {COLORS['text']};
+    }}
+    .book-card {{
+        border: 3px solid {COLORS['border']};
         border-radius: 15px;
         padding: 25px;
         margin: 15px 0;
-        background-color: #F8F8F8;
+        background-color: {COLORS['card_bg']};
         font-size: 20px;
-    }
-    .stProgress > div > div {
+    }}
+    .stProgress > div > div {{
         height: 30px !important;
-    }
-    audio {
+    }}
+    audio {{
         width: 100% !important;
         height: 60px !important;
-    }
-    .stAlert {
+    }}
+    .stAlert {{
         font-size: 20px !important;
         padding: 20px !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button {
+    }}
+    .stTabs [data-baseweb="tab-list"] button {{
         font-size: 24px !important;
         padding: 15px 30px !important;
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -105,23 +109,34 @@ st.markdown(
 # ---------- HELPERS ----------
 
 
-def show_pdf_inline(pdf_path: str, height: int = 600):
+def show_pdf_inline(pdf_path: str, height: int = 700):
+    """Embed a PDF viewer directly in Streamlit using base64."""
     pdf_file = Path(pdf_path)
     if not pdf_file.exists():
         st.warning("PDF not found.")
         return
-    import base64 as _b64
+    
+    with open(pdf_file, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
 
-    b64 = _b64.b64encode(pdf_file.read_bytes()).decode("utf-8")
-    html(
-        f"""
+    pdf_display = f"""
         <iframe
-          src="data:application/pdf;base64,{b64}"
-          style="width:100%; height:{height}px; border:none;"
+            src="data:application/pdf;base64,{base64_pdf}"
+            width="100%" 
+            height="{height}px" 
+            style="border-radius: 10px; border: 3px solid #333;"
         ></iframe>
-    """,
-        height=height,
-    )
+    """
+
+    html(pdf_display, height=height)
+
+def get_backend_voices():
+    try:
+        resp = requests.get(f"{ORCHESTRATOR_URL}/voices", timeout=3)
+        data = resp.json()
+        return data.get("voices", [])
+    except:
+        return []
 
 
 def init_session_state():
@@ -137,14 +152,14 @@ def init_session_state():
         st.session_state.selected_book = None
     if "user_settings" not in st.session_state:
         st.session_state.user_settings = {
-            "default_voice": "Ana",
-            "default_speed": 1.0,
-            "theme": "light",
+            "default_voice": DEFAULT_VOICE,
+            "default_speed": DEFAULT_SPEED,
+            "theme": DEFAULT_THEME,
         }
 
 
 def load_library() -> Dict[str, Any]:
-    library_path = Path("data/library.json")
+    library_path = Path(LIBRARY_FILE)
     if library_path.exists():
         with library_path.open("r", encoding="utf-8") as f:
             return json.load(f)
@@ -152,8 +167,8 @@ def load_library() -> Dict[str, Any]:
 
 
 def save_library():
-    Path("data").mkdir(exist_ok=True)
-    with Path("data/library.json").open("w", encoding="utf-8") as f:
+    Path(DATA_DIR).mkdir(exist_ok=True)
+    with Path(LIBRARY_FILE).open("w", encoding="utf-8") as f:
         json.dump(st.session_state.library, f, indent=2, ensure_ascii=False)
 
 
@@ -162,7 +177,7 @@ def save_library():
 
 def login():
     st.markdown(
-        "<h1 style='text-align: center;'>🎧 booq - Audiobook Creator</h1>",
+        f"<h1 style='text-align: center;'>{APP_ICON} {APP_NAME}</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -173,9 +188,14 @@ def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br>" * 2, unsafe_allow_html=True)
-        username = st.text_input("👤 Username", key="login_username", placeholder="Enter your username")
+        username = st.text_input(
+            "👤 Username", key="login_username", placeholder="Enter your username"
+        )
         password = st.text_input(
-            "🔒 Password", type="password", key="login_password", placeholder="Enter your password"
+            "🔒 Password",
+            type="password",
+            key="login_password",
+            placeholder="Enter your password",
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -187,9 +207,10 @@ def login():
                     st.session_state.authenticated = True
                     st.session_state.username = username
                     st.session_state.current_page = "library"
+                    st.success(SUCCESS_MESSAGES["login_successful"])
                     st.rerun()
                 else:
-                    st.error("⚠️ Please enter both username and password")
+                    st.error(ERROR_MESSAGES["authentication_failed"])
 
 
 def logout():
@@ -215,7 +236,9 @@ def library_page():
         if st.button("🚪 Logout", use_container_width=True):
             logout()
 
-    search_query = st.text_input("🔍 Search books by title", placeholder="Type to search...")
+    search_query = st.text_input(
+        "🔍 Search books by title", placeholder="Type to search..."
+    )
 
     col_add1, col_add2, col_add3 = st.columns([2, 1, 2])
     with col_add2:
@@ -227,7 +250,7 @@ def library_page():
 
     library = st.session_state.library
     if not library:
-        st.info("📖 Your library is empty. Click 'Add New Book' to get started!")
+        st.info(INFO_MESSAGES["empty_library"])
         return
 
     filtered = {
@@ -269,7 +292,9 @@ def library_page():
                     st.session_state.current_page = "player"
                     st.rerun()
 
-                if st.button("🗑️ Delete", key=f"delete_{book_id}", use_container_width=True):
+                if st.button(
+                    "🗑️ Delete", key=f"delete_{book_id}", use_container_width=True
+                ):
                     st.session_state.book_to_delete = book_id
                     st.session_state.show_delete_confirm = True
 
@@ -283,7 +308,6 @@ def library_page():
         col_del1, col_del2, col_del3 = st.columns([2, 1, 1])
         with col_del2:
             if st.button("✅ Yes, Delete", use_container_width=True):
-                # Delete files if they exist
                 audio_path = library[bid].get("audio_path")
                 if audio_path and Path(audio_path).exists():
                     os.remove(audio_path)
@@ -294,6 +318,7 @@ def library_page():
                 del st.session_state.library[bid]
                 save_library()
                 st.session_state.show_delete_confirm = False
+                st.success(SUCCESS_MESSAGES["book_deleted"])
                 st.rerun()
         with col_del3:
             if st.button("❌ Cancel", use_container_width=True):
@@ -312,7 +337,9 @@ def add_book_page():
 
     st.markdown("<h2>1️⃣ Upload Your Book (PDF)</h2>", unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
-        "Choose a PDF file", type=["pdf"], help="Upload a PDF book to convert to audiobook"
+        "Choose a PDF file",
+        type=ALLOWED_FILE_TYPES,
+        help=f"Upload a PDF file (max {MAX_FILE_SIZE_MB}MB)",
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -320,9 +347,13 @@ def add_book_page():
     st.markdown("<h2>2️⃣ Select Audiobook Language</h2>", unsafe_allow_html=True)
     language = st.selectbox(
         "Choose language for audiobook",
-        options=["English", "Spanish", "French", "German", "Italian", "Portuguese", "Korean", "Japanese"],
-        index=0,
+        options=LANGUAGES,
+        index=LANGUAGES.index(DEFAULT_LANGUAGE),
     )
+    st.markdown("<h2>3️⃣ Select Voice</h2>", unsafe_allow_html=True)
+    voices = get_backend_voices()
+    voice = st.selectbox("🎤 Voice", voices if voices else ["Default"])
+
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -336,7 +367,7 @@ def add_book_page():
         )
 
     if create_button and uploaded_file:
-        pdf_dir = Path("data/pdfs")
+        pdf_dir = Path(PDF_DIR)
         pdf_dir.mkdir(parents=True, exist_ok=True)
         timestamp = int(time.time())
         pdf_filename = f"{timestamp}_{uploaded_file.name}"
@@ -346,7 +377,7 @@ def add_book_page():
             f.write(uploaded_file.getvalue())
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.info("🔄 Sending job to orchestrator...")
+        st.info(INFO_MESSAGES["creating_audiobook"])
 
         progress_bar = st.progress(10)
         status_text = st.empty()
@@ -354,11 +385,9 @@ def add_book_page():
         book_id = f"book_{timestamp}"
         book_title = uploaded_file.name.replace(".pdf", "")
 
-        # Map UI language to code (simple)
-        lang_code = "en"  # TODO: map properly if needed
-
-        voice = st.session_state.user_settings.get("default_voice", "Ana")
-        speed = st.session_state.user_settings.get("default_speed", 1.0)
+        lang_code = language
+        voice = st.session_state.user_settings.get("default_voice", DEFAULT_VOICE)
+        speed = st.session_state.user_settings.get("default_speed", DEFAULT_SPEED)
 
         payload = {
             "book_id": book_id,
@@ -370,7 +399,9 @@ def add_book_page():
 
         try:
             status_text.text("📡 Contacting orchestrator...")
-            resp = requests.post(f"{ORCHESTRATOR_URL}/audiobooks/create", json=payload, timeout=600)
+            resp = requests.post(
+                f"{ORCHESTRATOR_URL}/audiobooks/create", json=payload, timeout=600
+            )
             progress_bar.progress(80)
         except Exception as exc:
             st.error(f"❌ Failed to contact orchestrator: {exc}")
@@ -382,7 +413,9 @@ def add_book_page():
 
         result = resp.json()
         if not result.get("success"):
-            st.error(f"❌ Failed to create audiobook: {result.get('error', 'Unknown error')}")
+            st.error(
+                result.get("error", ERROR_MESSAGES["audio_generation_failed"])
+            )
             return
 
         audio_path = result["audio_path"]
@@ -390,11 +423,12 @@ def add_book_page():
         duration = result.get("duration", "00:00:00")
         total_pages = result.get("total_pages", 0)
 
+        #save book in library
         st.session_state.library[book_id] = {
             "title": book_title,
             "language": language,
             "date_added": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "pdf_path": str(pdf_path),
+            "pdf_path": str(pdf_path).replace("\\","/"),
             "audio_path": audio_path,
             "text_path": text_path,
             "status": "Ready",
@@ -402,14 +436,20 @@ def add_book_page():
             "duration": duration,
             "current_page": 1,
             "total_pages": total_pages,
+            "speed": speed,
+            "voice": voice,
         }
         save_library()
 
         progress_bar.progress(100)
-        status_text.text("✅ Audiobook created!")
+        status_text.text(SUCCESS_MESSAGES["audiobook_created"])
 
-        st.success(f"✅ Audiobook '{book_title}' created successfully!")
-        st.info("📚 Your book is now available in the library. Click below to start listening!")
+        st.success(
+            f"✅ Audiobook '{book_title}' created successfully!"
+        )
+        st.info(
+            "📚 Your book is now available in the library. Click below to start listening!"
+        )
 
         col_play1, col_play2, col_play3 = st.columns([1, 1, 1])
         with col_play2:
@@ -434,7 +474,7 @@ def player_page():
     book_id = st.session_state.selected_book
     book_data = st.session_state.library.get(book_id)
     if not book_data:
-        st.error("Book not found")
+        st.error(ERROR_MESSAGES["book_not_found"])
         if st.button("⬅️ Back to Library"):
             st.session_state.current_page = "library"
             st.rerun()
@@ -452,26 +492,32 @@ def player_page():
 
     col_left, col_right = st.columns([3, 2])
 
+    # LEFT: PDF Preview
     with col_left:
         st.markdown("<h2>📄 Book Preview</h2>", unsafe_allow_html=True)
         pdf_path = book_data.get("pdf_path")
         if pdf_path and Path(pdf_path).exists():
-            show_pdf_inline(pdf_path, height=650)
+            show_pdf_inline(book_data[pdf_path])
         else:
             st.info("No PDF preview available.")
 
+    # RIGHT: Audio & Settings
     with col_right:
         st.markdown("<h2>🎵 Player Controls</h2>", unsafe_allow_html=True)
 
         duration = book_data.get("duration", "00:00:00")
         total_pages = book_data.get("total_pages", 0)
+        generated_speed = book_data.get("speed", 1.0)
+
         st.markdown(
             f"""
             <div class="book-card">
-                <p style="margin: 5px 0;">🌍 <strong>Language:</strong> {book_data['language']}</p>
-                <p style="margin: 5px 0;">📅 <strong>Added:</strong> {book_data['date_added']}</p>
-                <p style="margin: 5px 0;">📄 <strong>Pages:</strong> {total_pages}</p>
-                <p style="margin: 5px 0;">⏱ <strong>Duration (est):</strong> {duration}</p>
+                <p>🌍 <strong>Language:</strong> {book_data['language']}</p>
+                <p>📅 <strong>Added:</strong> {book_data['date_added']}</p>
+                <p>📄 <strong>Pages:</strong> {total_pages}</p>
+                <p>⏱ <strong>Duration (est):</strong> {duration}</p>
+                <p>⚡ <strong>Generated at speed:</strong> {generated_speed}x</p>
+                <p>🎤 <strong>Voice:</strong> {book_data.get("voice", "Default")}</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -481,10 +527,31 @@ def player_page():
 
         st.markdown("<h3>🎵 Audio Player</h3>", unsafe_allow_html=True)
         audio_path = book_data.get("audio_path")
+
+        # Playback speed (UI only)
+        playback_speed = st.select_slider(
+            "⚡ Playback Speed (UI playback)",
+            options=PLAYBACK_SPEEDS,
+            value=1.0,
+        )
+
         if audio_path and Path(audio_path).exists():
-            with Path(audio_path).open("rb") as f:
-                audio_bytes = f.read()
-            st.audio(audio_bytes, format="audio/wav")
+            audio_bytes = Path(audio_path).read_bytes()
+            b64 = base64.b64encode(audio_bytes).decode()
+
+            html(
+                f"""
+                <audio id="player" controls style="width:100%">
+                    <source src="data:audio/wav;base64,{b64}" type="audio/wav">
+                </audio>
+
+                <script>
+                    var player = document.getElementById('player');
+                    player.playbackRate = {playback_speed};
+                </script>
+                """,
+                height=80,
+            )
         else:
             st.warning("⚠️ Audio file not found. Please recreate this audiobook.")
 
@@ -499,20 +566,11 @@ def player_page():
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("<h3>⚙️ Playback Settings</h3>", unsafe_allow_html=True)
-        voice = st.selectbox(
-            "🎤 Voice",
-            options=["Ana", "Brian", "Emma", "James"],
-            index=0,
-            key="voice_select",
-        )
-        speed = st.select_slider(
-            "⚡ Playback Speed",
-            options=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
-            value=1.0,
-            key="speed_select",
-        )
+        voices = get_backend_voices()
+        voice = st.selectbox("🎤 Voice", voices if voices else ["Default"])
+
         st.markdown(
-            f"<p style='font-size: 20px; text-align: center;'>Current Speed: <strong>{speed}x</strong></p>",
+            f"<p style='font-size: 18px;'>Selected voice: <strong>{voice}</strong> (affects future generations)</p>",
             unsafe_allow_html=True,
         )
 
@@ -527,12 +585,16 @@ def settings_page():
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("<h2>🎤 Default Voice</h2>", unsafe_allow_html=True)
+    voices = get_backend_voices()
+    if DEFAULT_VOICE in voices:
+        default_index = voices.index(DEFAULT_VOICE)
+    else:
+        default_index = 0
+
     default_voice = st.selectbox(
         "Select default voice for new audiobooks",
-        options=["Ana", "Brian", "Emma", "James"],
-        index=["Ana", "Brian", "Emma", "James"].index(
-            st.session_state.user_settings["default_voice"]
-        ),
+        options=voices,
+        index=default_index,
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -540,7 +602,7 @@ def settings_page():
     st.markdown("<h2>⚡ Default Playback Speed</h2>", unsafe_allow_html=True)
     default_speed = st.select_slider(
         "Select default playback speed",
-        options=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+        options=PLAYBACK_SPEEDS,
         value=st.session_state.user_settings["default_speed"],
     )
 
@@ -551,7 +613,7 @@ def settings_page():
         if st.button("💾 Save Settings", use_container_width=True, type="primary"):
             st.session_state.user_settings["default_voice"] = default_voice
             st.session_state.user_settings["default_speed"] = default_speed
-            st.success("✅ Settings saved successfully!")
+            st.success(SUCCESS_MESSAGES["settings_saved"])
 
 
 # ---------- MAIN ----------
@@ -562,13 +624,20 @@ def main():
 
     if st.session_state.authenticated:
         with st.sidebar:
-            st.markdown("<h2 style='text-align: center;'>🎧 Navigation</h2>", unsafe_allow_html=True)
+            st.markdown(
+                "<h2 style='text-align: center;'>🎧 Navigation</h2>",
+                unsafe_allow_html=True,
+            )
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button(
                 "📚 Library",
                 use_container_width=True,
-                type="primary" if st.session_state.current_page == "library" else "secondary",
+                type=(
+                    "primary"
+                    if st.session_state.current_page == "library"
+                    else "secondary"
+                ),
             ):
                 st.session_state.current_page = "library"
                 st.rerun()
@@ -576,7 +645,11 @@ def main():
             if st.button(
                 "➕ Add Book",
                 use_container_width=True,
-                type="primary" if st.session_state.current_page == "add_book" else "secondary",
+                type=(
+                    "primary"
+                    if st.session_state.current_page == "add_book"
+                    else "secondary"
+                ),
             ):
                 st.session_state.current_page = "add_book"
                 st.rerun()
@@ -584,7 +657,11 @@ def main():
             if st.button(
                 "⚙️ Settings",
                 use_container_width=True,
-                type="primary" if st.session_state.current_page == "settings" else "secondary",
+                type=(
+                    "primary"
+                    if st.session_state.current_page == "settings"
+                    else "secondary"
+                ),
             ):
                 st.session_state.current_page = "settings"
                 st.rerun()
