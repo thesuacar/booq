@@ -384,12 +384,7 @@ def add_book_page():
         book_id = f"book_{timestamp}"
         book_title = uploaded_file.name.replace(".pdf", "")
 
-<<<<<<< HEAD
         voice = st.session_state.user_settings.get("default_voice", DEFAULT_VOICE)
-=======
-        lang_code = language
-
->>>>>>> 0a84ab755b610429b2378828d336fbc2b27e103f
         speed = st.session_state.user_settings.get("default_speed", DEFAULT_SPEED)
 
         payload = {
@@ -503,11 +498,7 @@ def player_page():
         st.markdown("<h2>📄 Book Preview</h2>", unsafe_allow_html=True)
         pdf_path = book_data.get("pdf_path")
         if pdf_path and Path(pdf_path).exists():
-<<<<<<< HEAD
             show_pdf_inline(book_data["pdf_path"])
-=======
-            show_pdf_inline(pdf_path)
->>>>>>> 0a84ab755b610429b2378828d336fbc2b27e103f
         else:
             st.info("No PDF preview available.")
 
