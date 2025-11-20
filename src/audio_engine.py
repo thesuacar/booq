@@ -41,37 +41,59 @@ class AudioEngine:
         self.engine = pyttsx3.init()
         self._default_rate = self.engine.getProperty("rate")
 
+        self.friendly_voice_map = {}
+
         self.available_voices: Dict[str, str] = {}
         self._load_voices()
 
     # -------------------------------------------------------------------------
     # Internal helpers
     # -------------------------------------------------------------------------
-
     def _load_voices(self) -> None:
         try:
-            for v in self.engine.getProperty("voices"):
-                # Use voice.name as key, voice.id as internal id
-                name = v.name or v.id
-                self.available_voices[name] = v.id
-            logger.info("Loaded %d TTS voices", len(self.available_voices))
-        except Exception as exc:  # pragma: no cover
-            logger.error("Failed to load system TTS voices: %s", exc)
+            system_voices = self.engine.getProperty("voices")
+
+            # Map system voices to friendly names
+            voice_map = {
+                "Microsoft David Desktop - English (United States)": "Tom",
+                "Microsoft Zira Desktop - English (United States)": "Ana",
+                "Microsoft Hazel Desktop - English (Great Britain)": "Emily",
+            }
+
+            friendly_mapping = {}
+
+            for v in system_voices:
+                friendly_name = voice_map.get(v.name)
+                if friendly_name:
+                    friendly_mapping[friendly_name] = v.id
+
+            # Store mapping in BOTH attributes
+            self.available_voices = friendly_mapping
+            self.friendly_voice_map = friendly_mapping   # <-- REQUIRED FIX
+
+            logger.info("Loaded voices: %s", list(self.available_voices.keys()))
+
+        except Exception as exc:
+            logger.error("Failed to load system voices: %s", exc)
+
+
 
     def _select_voice(self, voice_name: Optional[str]) -> None:
-        """Select a voice by its name (as exposed to the UI)."""
+        """Select voice via friendly name."""
         if not voice_name:
             return
 
-        voice_id = self.available_voices.get(voice_name)
-        if voice_id:
+        system_id = self.available_voices.get(voice_name)
+        if system_id:
             try:
-                self.engine.setProperty("voice", voice_id)
-            except Exception as exc:  # pragma: no cover
+                self.engine.setProperty("voice", system_id)
+                return
+            except Exception as exc:
                 logger.error("Failed to set voice '%s': %s", voice_name, exc)
-        else:
-            logger.warning("Requested voice '%s' not found. Using default.", voice_name)
 
+        logger.warning("Requested voice '%s' not found. Using default.", voice_name)
+
+    
     def _set_speed(self, speed: float) -> None:
         """
         Apply a speed multiplier to the engine's rate.

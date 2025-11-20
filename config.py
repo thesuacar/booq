@@ -58,7 +58,7 @@ DEFAULT_VOICE = ""
 VOICES = ["Tom", "Ana"] # changing index, changes voices. 0 for male, 1 for female (voices[1].id)
 
 # Playback Speed Options
-PLAYBACK_SPEEDS = [150, 175, 200, 225, 250, 275] # in words per minute
+PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0] #as a multiplier
 
 # Default Settings
 DEFAULT_LANGUAGE = "English"

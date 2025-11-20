@@ -391,7 +391,7 @@ def add_book_page():
         book_title = uploaded_file.name.replace(".pdf", "")
 
         lang_code = language
-        voice = st.session_state.user_settings.get("default_voice", DEFAULT_VOICE)
+
         speed = st.session_state.user_settings.get("default_speed", DEFAULT_SPEED)
 
         payload = {
@@ -478,6 +478,7 @@ def player_page():
 
     book_id = st.session_state.selected_book
     book_data = st.session_state.library.get(book_id)
+
     if not book_data:
         st.error(ERROR_MESSAGES["book_not_found"])
         if st.button("⬅️ Back to Library"):
@@ -485,6 +486,7 @@ def player_page():
             st.rerun()
         return
 
+    # ---- HEADER ----
     col_header1, col_header2 = st.columns([4, 1])
     with col_header1:
         st.markdown(f"<h1>🎧 {book_data['title']}</h1>", unsafe_allow_html=True)
@@ -495,18 +497,19 @@ def player_page():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ---- LAYOUT ----
     col_left, col_right = st.columns([3, 2])
 
-    # LEFT: PDF Preview
+    # LEFT SIDE → PDF Preview
     with col_left:
         st.markdown("<h2>📄 Book Preview</h2>", unsafe_allow_html=True)
         pdf_path = book_data.get("pdf_path")
         if pdf_path and Path(pdf_path).exists():
-            show_pdf_inline(book_data[pdf_path])
+            show_pdf_inline(pdf_path)
         else:
             st.info("No PDF preview available.")
 
-    # RIGHT: Audio & Settings
+    # RIGHT SIDE → AUDIO + SETTINGS
     with col_right:
         st.markdown("<h2>🎵 Player Controls</h2>", unsafe_allow_html=True)
 
@@ -530,10 +533,10 @@ def player_page():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # ---- AUDIO PLAYER ----
         st.markdown("<h3>🎵 Audio Player</h3>", unsafe_allow_html=True)
         audio_path = book_data.get("audio_path")
 
-        # Playback speed (UI only)
         playback_speed = st.select_slider(
             "⚡ Playback Speed (UI playback)",
             options=PLAYBACK_SPEEDS,
@@ -560,7 +563,9 @@ def player_page():
         else:
             st.warning("⚠️ Audio file not found. Please recreate this audiobook.")
 
+        # ---- LISTENING PROGRESS ----
         progress = book_data.get("progress", 0)
+
         st.markdown("<h3>📊 Listening Progress</h3>", unsafe_allow_html=True)
         st.progress(progress / 100 if progress <= 100 else 1.0)
         st.markdown(
@@ -570,14 +575,60 @@ def player_page():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # ---- PLAYBACK SETTINGS ----
         st.markdown("<h3>⚙️ Playback Settings</h3>", unsafe_allow_html=True)
+
         voices = get_backend_voices()
-        voice = st.selectbox("🎤 Voice", voices if voices else ["Default"])
+        selected_voice = st.selectbox("🎤 Voice", voices if voices else ["Default"])
 
         st.markdown(
-            f"<p style='font-size: 18px;'>Selected voice: <strong>{voice}</strong> (affects future generations)</p>",
+            f"<p style='font-size: 18px;'>Selected voice: <strong>{selected_voice}</strong></p>",
             unsafe_allow_html=True,
         )
+
+        # Save so new audiobooks default to this voice
+        st.session_state.user_settings["default_voice"] = selected_voice
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ---- REGENERATE BUTTON ----
+        if st.button("🔄 Regenerate Audio With This Voice", use_container_width=True):
+            st.info("Regenerating audio with the new voice…")
+
+            payload = {
+                "book_id": book_id,
+                "pdf_path": book_data["pdf_path"],
+                "language": book_data["language"],
+                "voice": selected_voice,
+                "speed": book_data.get("speed", 1.0),
+            }
+
+            try:
+                resp = requests.post(
+                    f"{ORCHESTRATOR_URL}/audiobooks/create",
+                    json=payload,
+                    timeout=600,
+                )
+            except Exception as exc:
+                st.error(f"Failed to contact orchestrator: {exc}")
+                return
+
+            if resp.status_code != 200:
+                st.error(f"Orchestrator error: HTTP {resp.status_code}")
+                return
+
+            result = resp.json()
+            if not result.get("success"):
+                st.error(result.get("error", "Audio regeneration failed"))
+                return
+
+            # Update audio path + voice
+            st.session_state.library[book_id]["audio_path"] = result["audio_path"]
+            st.session_state.library[book_id]["voice"] = selected_voice
+            save_library()
+
+            st.success("Audio regenerated successfully!")
+            st.rerun()
 
 
 def settings_page():
