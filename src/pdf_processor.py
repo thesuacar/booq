@@ -1,5 +1,5 @@
 """
-PDF Processor with EasyOCR (No Tesseract, No Poppler)
+PDF Processor with EasyOCR
 Supports multilingual OCR and works on Windows.
 """
 
