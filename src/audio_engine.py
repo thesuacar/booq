@@ -6,15 +6,14 @@ Supports: voice selection, speed adjustments, caching
 from __future__ import annotations
 
 import hashlib
-import logging
 from pathlib import Path
 from typing import Optional, Dict
 from tempfile import NamedTemporaryFile
 import os
+import streamlit as st
 
 import pyttsx3
 
-logger = logging.getLogger(__name__)
 
 
 class AudioEngine:
@@ -41,48 +40,72 @@ class AudioEngine:
         self.engine = pyttsx3.init()
         self._default_rate = self.engine.getProperty("rate")
 
+        self.friendly_voice_map = {}
+
         self.available_voices: Dict[str, str] = {}
         self._load_voices()
 
     # -------------------------------------------------------------------------
     # Internal helpers
     # -------------------------------------------------------------------------
-
     def _load_voices(self) -> None:
         try:
-            for v in self.engine.getProperty("voices"):
-                # Use voice.name as key, voice.id as internal id
-                name = v.name or v.id
-                self.available_voices[name] = v.id
-            logger.info("Loaded %d TTS voices", len(self.available_voices))
-        except Exception as exc:  # pragma: no cover
-            logger.error("Failed to load system TTS voices: %s", exc)
+            system_voices = self.engine.getProperty("voices")
+
+            # Map system voices to friendly names
+            voice_map = {
+                "Microsoft David Desktop - English (United States)": "Tom",
+                "Microsoft Zira Desktop - English (United States)": "Ana",
+                "Microsoft Hazel Desktop - English (Great Britain)": "Emily",
+            }
+
+            friendly_mapping = {}
+
+            for v in system_voices:
+                friendly_name = voice_map.get(v.name)
+                if friendly_name:
+                    friendly_mapping[friendly_name] = v.id
+
+            # Store mapping in BOTH attributes
+            self.available_voices = friendly_mapping
+            self.friendly_voice_map = friendly_mapping   # <-- REQUIRED FIX
+
+            st.info("Loaded voices: %s", list(self.available_voices.keys()))
+
+        except Exception as exc:
+            st.error("Failed to load system voices: %s", exc)
+
+
 
     def _select_voice(self, voice_name: Optional[str]) -> None:
-        """Select a voice by its name (as exposed to the UI)."""
+        """Select voice via friendly name."""
         if not voice_name:
             return
 
-        voice_id = self.available_voices.get(voice_name)
-        if voice_id:
+        system_id = self.available_voices.get(voice_name)
+        if system_id:
             try:
-                self.engine.setProperty("voice", voice_id)
-            except Exception as exc:  # pragma: no cover
-                logger.error("Failed to set voice '%s': %s", voice_name, exc)
+                self.engine.setProperty("voice", system_id)
+                return
+            except Exception as exc:
+                st.error("Failed to set voice '%s': %s", voice_name, exc)
         else:
             # Fallback: pick the first available voice if the requested one is missing
             try:
                 default_id = next(iter(self.available_voices.values()))
                 self.engine.setProperty("voice", default_id)
-                logger.warning(
+                st.warning(
                     "Requested voice '%s' not found. Falling back to first available.",
                     voice_name,
                 )
             except StopIteration:
-                logger.error(
+                st.error(
                     "No TTS voices available on this system; using engine defaults."
                 )
 
+        st.warning("Requested voice '%s' not found. Using default.", voice_name)
+
+    
     def _set_speed(self, speed: float) -> None:
         """
         Apply a speed multiplier to the engine's rate.
@@ -100,7 +123,7 @@ class AudioEngine:
         try:
             self.engine.setProperty("rate", new_rate)
         except Exception as exc:  # pragma: no cover
-            logger.error("Failed to set TTS rate: %s", exc)
+            st.error("Failed to set TTS rate: %s", exc)
 
     @staticmethod
     def _make_cache_key(text: str, language: str, voice: Optional[str], speed: float) -> str:
@@ -119,7 +142,7 @@ class AudioEngine:
                 with cache_file.open("rb") as f:
                     return f.read()
             except Exception as exc:
-                logger.error("Failed to read cache file: %s", exc)
+                st.error("Failed to read cache file: %s", exc)
         return None
 
     def _save_to_cache(self, key: str, audio_bytes: bytes) -> None:
@@ -127,9 +150,9 @@ class AudioEngine:
         try:
             with cache_file.open("wb") as f:
                 f.write(audio_bytes)
-            logger.info("Saved audio to cache: %s", cache_file)
+            st.info("Saved audio to cache: %s", cache_file)
         except Exception as exc:
-            logger.error("Failed to save cache file %s: %s", cache_file, exc)
+            st.error("Failed to save cache file %s: %s", cache_file, exc)
 
     # -------------------------------------------------------------------------
     # PUBLIC: Generate audio with caching
@@ -155,7 +178,7 @@ class AudioEngine:
         cache_key = self._make_cache_key(text, language, voice, speed)
         cached = self._load_from_cache(cache_key)
         if cached is not None:
-            logger.info("Returning cached audio for key=%s", cache_key)
+            st.info("Returning cached audio for key=%s", cache_key)
             return cached
 
         # Apply voice + speed to engine

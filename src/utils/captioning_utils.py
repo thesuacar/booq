@@ -200,3 +200,4 @@ class ImageCaptioner:
                 print(f"[ImageCaptioner] Failed on {p}: {exc}")
                 captions.append("(caption unavailable)")
         return captions
+

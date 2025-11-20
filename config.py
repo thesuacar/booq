@@ -33,6 +33,16 @@ PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 # Default Settings
 DEFAULT_VOICE = ""
 
+<<<<<<< HEAD
+=======
+# Playback Speed Options
+PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0] #as a multiplier
+
+# Default Settings
+DEFAULT_LANGUAGE = "English"
+DEFAULT_VOICE = "Ana"
+>>>>>>> origin/Pati
+>>>>>>> 0a84ab755b610429b2378828d336fbc2b27e103f
 DEFAULT_SPEED = 1.0
 DEFAULT_THEME = "light"
 
