@@ -12,10 +12,6 @@ data/
 outputs/
 logs/
 
-# Model weights
-*.pt
-*.pth
-
 # OS junk
 .DS_Store
 data/
