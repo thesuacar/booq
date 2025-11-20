@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "booq",
+			"path": "."
+		},
+		{
+			"name": "UI",
+			"path": "../../Downloads/UI"
+		}
+	],
+	"settings": {}
+}
