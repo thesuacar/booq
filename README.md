@@ -125,8 +125,7 @@ Provide utilities for page‑wise text extraction (with optional OCR fallback), 
 Contains helpers for splitting long texts, cleaning content and preparing it for TTS models (e.g., chunk sizes based on `MODELCONFIG`).[^4] [^2]
 - **`captioning_utils.py`**:
 Tools for generating or aligning captions/segments with audio, useful for highlighting listening progress or per‑page mapping (optional layer used by the orchestrator/manager).[^4]
-  - The default image captioning backend now loads the fine-tuned `epoch_3.pth` checkpoint from `src/training`. Override via `BOOQ_CAPTION_MODEL` if you store checkpoints elsewhere.
-
+  - The default image captioning backend now loads the fine-tuned `epoch_3.pth` checkpoint from `src/training`. 
 The file `orchestrator-code.py` mirrors these responsibilities in a notebook‑style script (creating `PDFProcessor`, `AudioGenerator` and `AudiobookManager` classes and saving an `.ipynb` file), and documents how to integrate with the Streamlit UI; in this codebase the FastAPI server is the productionized version of that logic.[^4][^3]
 
 ***
@@ -182,7 +181,9 @@ cd <repo-folder>
 
 2. **Create and activate a virtual environment**
 ```bash
-source SEenv/bin/activate  # Windows: .venv\Scripts\activate
+python3.13 -m venv SEenv
+
+source SEenv/bin/activate  # Windows: SEenv\Scripts\activate
 ```
 
 3. **Install dependencies**
@@ -212,7 +213,7 @@ These locations can be changed in `config.py` if needed. [^2]
 From the project root:
 
 ```bash
-uvicorn services.orchestrator_server:app --reload --host 0.0.0.0 --port 8001
+uvicorn booq.services.orchestrator_server:app --reload --host 0.0.0.0 --port 8001
 ```
 
 This must match `ORCHESTRATORURL` in `config.py` (by default pointing at `http://localhost:8001`).[^3] [^2]
