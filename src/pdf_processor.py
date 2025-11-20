@@ -1,9 +1,5 @@
 """
-<<<<<<< HEAD
 PDF Processor with EasyOCR
-=======
-PDF Processor with EasyOCR (No Tesseract, No Poppler)
->>>>>>> origin/Pati
 Supports multilingual OCR and works on Windows.
 """
 
