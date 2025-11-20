@@ -18,7 +18,12 @@ import streamlit as st
 from streamlit.components.v1 import html
 import sys
 
+<<<<<<< HEAD
 # Add project root to PYTHONPATH
+=======
+
+
+>>>>>>> origin/Pati
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 

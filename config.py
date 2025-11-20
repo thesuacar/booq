@@ -43,6 +43,7 @@ LANGUAGE_CODES = {
     "Japanese": "ja",
 }
 
+<<<<<<< HEAD
 # Available Voices (UI default list; backend can expose real system voices)
 VOICES = []
 
@@ -52,6 +53,17 @@ PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 # Default Settings
 DEFAULT_LANGUAGE = "English"
 DEFAULT_VOICE = ""
+=======
+# Available Voices 
+VOICES = ["Tom", "Ana"] # changing index, changes voices. 0 for male, 1 for female (voices[1].id)
+
+# Playback Speed Options
+PLAYBACK_SPEEDS = [150, 175, 200, 225, 250, 275] # in words per minute
+
+# Default Settings
+DEFAULT_LANGUAGE = "English"
+DEFAULT_VOICE = "Ana"
+>>>>>>> origin/Pati
 DEFAULT_SPEED = 1.0
 DEFAULT_THEME = "light"
 
@@ -68,7 +80,11 @@ MAX_FILE_SIZE_MB = 200  # Maximum PDF file size in MB
 ALLOWED_FILE_TYPES = ["pdf"]
 
 # Audio Generation Settings
+<<<<<<< HEAD
 WORDS_PER_MINUTE = 150  # Average reading speed for duration estimation
+=======
+WORDS_PER_MINUTE = 200  # Average reading speed for duration estimation
+>>>>>>> origin/Pati
 CHARACTERS_PER_WORD = 5  # Average characters per word
 
 # Cache Settings
@@ -105,12 +121,26 @@ PROGRESS_STEPS = {
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+<<<<<<< HEAD
 # Model Configuration (Update with your model specifics)
 MODEL_CONFIG = {
     "model_path": None,  # Path to your pre-trained model
     "model_type": "custom",  # 'custom', 'gtts', 'transformers', etc.
     "batch_size": 32,
     "max_length": 1000,  # Maximum characters per audio chunk
+=======
+# Model Configuration for pyttsx3
+MODEL_CONFIG = {
+    "model_path": None,  # pyttsx3 does not use a model file; it uses system voices
+    "model_type": "pyttsx3",  # Use pyttsx3 for TTS
+    "batch_size": 1,  # pyttsx3 processes one utterance at a time
+    "max_length": 1000,  # Maximum characters per audio chunk (pyttsx3 handles long text by splitting)
+    "fallback_tts": None,  # No fallback needed; pyttsx3 is the main engine
+    "supported_languages": ["en", "es", "fr", "de", "it", "pt", "ko", "ja"],  
+    "default_language": "en",  
+    "voice_options": ["default", "female", "male"],  
+    "speed_options": [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],  # Playback speed multipliers
+>>>>>>> origin/Pati
 }
 
 # Feature Flags
