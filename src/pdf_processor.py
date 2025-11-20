@@ -15,13 +15,37 @@ class PDFProcessor:
     def __init__(self, languages=None):
         """
         Initialize EasyOCR with provided languages.
-        languages -> list of strings like ["en"], ["en","es"], ["fr"], etc.
+        Tries GPU first, falls back to CPU automatically.
         """
         if languages is None:
-            languages = ["en"]  # Default English
-        
+            languages = ["en"]
+
         print(f"[PDFProcessor] Loading EasyOCR languages: {languages}")
-        self.ocr_reader = easyocr.Reader(languages, gpu=False)
+
+        # ----------------------------------------
+        # GPU detection
+        # ----------------------------------------
+        try:
+            import torch
+            gpu_available = torch.cuda.is_available()
+        except Exception:
+            gpu_available = False
+
+        if gpu_available:
+            print("[PDFProcessor] GPU detected. Initializing EasyOCR with GPU=True")
+        else:
+            print("[PDFProcessor] GPU NOT detected. Using CPU for EasyOCR")
+
+        # ----------------------------------------
+        # Initialize EasyOCR
+        # ----------------------------------------
+        try:
+            self.ocr_reader = easyocr.Reader(languages, gpu=gpu_available)
+        except Exception as exc:
+            print(f"[PDFProcessor] GPU initialization failed: {exc}")
+            print("[PDFProcessor] Falling back to CPU mode.")
+            self.ocr_reader = easyocr.Reader(languages, gpu=False)
+
 
     # ---------------------------------------------------------------------
     # Convert PyMuPDF page → PIL Image
