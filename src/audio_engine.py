@@ -70,7 +70,18 @@ class AudioEngine:
             except Exception as exc:  # pragma: no cover
                 logger.error("Failed to set voice '%s': %s", voice_name, exc)
         else:
-            logger.warning("Requested voice '%s' not found. Using default.", voice_name)
+            # Fallback: pick the first available voice if the requested one is missing
+            try:
+                default_id = next(iter(self.available_voices.values()))
+                self.engine.setProperty("voice", default_id)
+                logger.warning(
+                    "Requested voice '%s' not found. Falling back to first available.",
+                    voice_name,
+                )
+            except StopIteration:
+                logger.error(
+                    "No TTS voices available on this system; using engine defaults."
+                )
 
     def _set_speed(self, speed: float) -> None:
         """
@@ -158,7 +169,6 @@ class AudioEngine:
         try:
             self.engine.save_to_file(text, str(tmp_path))
             self.engine.runAndWait()
-
             audio_bytes = tmp_path.read_bytes()
         finally:
             try:

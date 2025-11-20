@@ -37,7 +37,7 @@ audio_cache_dir.mkdir(parents=True, exist_ok=True)
 audio_engine = AudioEngine(cache_dir=audio_cache_dir)
 
 # High-level audiobook orchestrator
-manager = AudiobookManager(audio_engine=audio_engine, pdf_processor=None)
+manager = AudiobookManager(audio_engine=audio_engine)
 
 logger.info("--- Orchestrator Started ---")
 logger.info("Voices available: %s", list(audio_engine.available_voices.keys()))
@@ -50,7 +50,6 @@ logger.info("Voices available: %s", list(audio_engine.available_voices.keys()))
 class CreateAudiobookRequest(BaseModel):
     book_id: str
     pdf_path: str
-    language: str   # e.g. "English", "Spanish", "en", "es"
     voice: str = DEFAULT_VOICE
     speed: float = DEFAULT_SPEED
 
@@ -64,7 +63,6 @@ def _create_audiobook_from_payload(payload: CreateAudiobookRequest) -> dict:
     Thin wrapper around AudiobookManager so the endpoint logic stays tiny.
     """
     settings = AudiobookSettings(
-        language=payload.language,
         voice=payload.voice,
         speed=payload.speed,
     )
@@ -88,6 +86,7 @@ def _create_audiobook_from_payload(payload: CreateAudiobookRequest) -> dict:
         "text_path": result["text_path"],
         "duration": result["duration"],
         "total_pages": result.get("total_pages", 0),
+        "language": result.get("language"),
     }
 
 
@@ -113,7 +112,7 @@ def list_voices() -> dict:
 
 
 @app.post("/audiobooks/create")
-def create_audiobook(payload: CreateAudiobookRequest) -> dict:
+async def create_audiobook(payload: CreateAudiobookRequest) -> dict:
     """
     Full pipeline entry point:
 
@@ -123,10 +122,9 @@ def create_audiobook(payload: CreateAudiobookRequest) -> dict:
     """
     try:
         logger.info(
-            "Starting audiobook job: book_id=%s, pdf=%s, lang=%s, voice=%s, speed=%.2f",
+            "Starting audiobook job: book_id=%s, pdf=%s, voice=%s, speed=%.2f",
             payload.book_id,
             payload.pdf_path,
-            payload.language,
             payload.voice,
             payload.speed,
         )

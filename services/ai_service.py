@@ -14,13 +14,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from config import IMAGE_CAPTIONING_MODEL
 from src.audio_engine import AudioClip, export_generation_report, synthesize_captions
 from src.utils.captioning_utils import ImageCaptioner
-from src.utils.pdf_utils import extract_images_from_pdf, extract_txt_from_pdf
+from src.utils.pdf_utils import render_pages_to_images     # ✅ unified image extractor
+from src.utils.pdf_utils import extract_txt_from_pdf        # ✅ missing import FIXED
+
 
 STORAGE_ROOT = Path(os.getenv("BOOQ_STORAGE_ROOT", "storage"))
 USE_FAKE_TTS = os.getenv("BOOQ_USE_FAKE_TTS", "true").lower() in {"1", "true", "yes"}
 
+
+# -----------------------------------------------------------------------------
+# Request/Response Models
+# -----------------------------------------------------------------------------
 
 class PreprocessRequest(BaseModel):
     job_id: str
@@ -55,6 +62,10 @@ class NarrateResponse(BaseModel):
     report_path: str
 
 
+# -----------------------------------------------------------------------------
+# FastAPI Setup
+# -----------------------------------------------------------------------------
+
 app = FastAPI(title="booq-ai-service", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -70,6 +81,10 @@ def healthcheck() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+# -----------------------------------------------------------------------------
+# Preprocess PDF
+# -----------------------------------------------------------------------------
+
 @app.post("/preprocess", response_model=PreprocessResponse)
 def preprocess_pdf(payload: PreprocessRequest) -> PreprocessResponse:
     pdf_path = Path(payload.pdf_path)
@@ -79,15 +94,21 @@ def preprocess_pdf(payload: PreprocessRequest) -> PreprocessResponse:
     out_dir = Path(payload.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    text_content = extract_txt_from_pdf(str(pdf_path))
+    # ---------- TEXT EXTRACTION ----------
+    text_content = extract_txt_from_pdf(str(pdf_path))   # ✅ now properly imported
     text_path = out_dir / "book.txt"
     text_path.write_text(text_content, encoding="utf-8")
 
+    # ---------- IMAGE EXTRACTION ----------
     images_dir = out_dir / "images"
-    image_paths = extract_images_from_pdf(str(pdf_path), str(images_dir))
+    image_paths = render_pages_to_images(str(pdf_path), str(images_dir))  # ✅ FIXED
 
     return PreprocessResponse(text_path=str(text_path), image_paths=image_paths)
 
+
+# -----------------------------------------------------------------------------
+# Caption Images
+# -----------------------------------------------------------------------------
 
 @app.post("/caption", response_model=CaptionResponse)
 def caption_images(payload: CaptionRequest) -> CaptionResponse:
@@ -95,13 +116,19 @@ def caption_images(payload: CaptionRequest) -> CaptionResponse:
         return CaptionResponse(captions=[])
 
     captioner = _get_captioner()
-    paths = [Path(p) for p in payload.image_paths if Path(p).exists()]
-    if not paths:
+    valid_paths = [Path(p) for p in payload.image_paths if Path(p).exists()]
+    if not valid_paths:
         return CaptionResponse(captions=[])
 
-    captions = captioner.generate_batch(paths[: payload.limit] if payload.limit else paths)
+    captions = captioner.generate_batch(
+        valid_paths[: payload.limit] if payload.limit else valid_paths
+    )
     return CaptionResponse(captions=captions)
 
+
+# -----------------------------------------------------------------------------
+# Narration / Audio
+# -----------------------------------------------------------------------------
 
 @app.post("/narrate", response_model=NarrateResponse)
 def narrate_script(payload: NarrateRequest) -> NarrateResponse:
@@ -138,10 +165,18 @@ def narrate_script(payload: NarrateRequest) -> NarrateResponse:
     )
 
 
+# -----------------------------------------------------------------------------
+# Captioner Loader (cached)
+# -----------------------------------------------------------------------------
+
 @lru_cache(maxsize=1)
 def _get_captioner() -> ImageCaptioner:
-    return ImageCaptioner()
+    return ImageCaptioner(checkpoint_path=IMAGE_CAPTIONING_MODEL)  # ✅ correct path
 
+
+# -----------------------------------------------------------------------------
+# Fake TTS (offline-friendly)
+# -----------------------------------------------------------------------------
 
 def _synthesize_offline_audio(script: List[str], *, output_dir: Path, job_id: str) -> List[AudioClip]:
     """Fast, offline-friendly audio generator that emits short WAV clips."""

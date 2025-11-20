@@ -18,12 +18,6 @@ import streamlit as st
 from streamlit.components.v1 import html
 import sys
 
-<<<<<<< HEAD
-# Add project root to PYTHONPATH
-=======
-
-
->>>>>>> origin/Pati
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
@@ -117,10 +111,11 @@ st.markdown(
 def show_pdf_inline(pdf_path: str, height: int = 700):
     """Embed a PDF viewer directly in Streamlit using base64."""
     pdf_file = Path(pdf_path)
+
     if not pdf_file.exists():
         st.warning("PDF not found.")
         return
-    
+
     with open(pdf_file, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode("utf-8")
 
@@ -134,6 +129,7 @@ def show_pdf_inline(pdf_path: str, height: int = 700):
     """
 
     html(pdf_display, height=height)
+
 
 def get_backend_voices():
     try:
@@ -280,7 +276,7 @@ def library_page():
                     <div class="book-card">
                         <h2 style="margin: 0;">{book_data['title']}</h2>
                         <p style="font-size: 20px; margin: 10px 0;">
-                            🌍 Language: <strong>{book_data['language']}</strong><br>
+                            🌍 Language: <strong>{book_data.get('language', AUDIOBOOK_LANGUAGE)}</strong><br>
                             📅 Added: {book_data['date_added']}<br>
                             🎵 Status: <strong>{book_data['status']}</strong><br>
                             ⏱ Duration: <strong>{book_data.get('duration','00:00:00')}</strong>
@@ -349,12 +345,10 @@ def add_book_page():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    st.markdown("<h2>2️⃣ Select Audiobook Language</h2>", unsafe_allow_html=True)
-    language = st.selectbox(
-        "Choose language for audiobook",
-        options=LANGUAGES,
-        index=LANGUAGES.index(DEFAULT_LANGUAGE),
-    )
+    st.markdown("<h2>2️⃣ Audiobook Language</h2>", unsafe_allow_html=True)
+    st.info("English narration is currently the only supported option.")
+    language = AUDIOBOOK_LANGUAGE
+
     st.markdown("<h2>3️⃣ Select Voice</h2>", unsafe_allow_html=True)
     voices = get_backend_voices()
     voice = st.selectbox("🎤 Voice", voices if voices else ["Default"])
@@ -390,14 +384,12 @@ def add_book_page():
         book_id = f"book_{timestamp}"
         book_title = uploaded_file.name.replace(".pdf", "")
 
-        lang_code = language
         voice = st.session_state.user_settings.get("default_voice", DEFAULT_VOICE)
         speed = st.session_state.user_settings.get("default_speed", DEFAULT_SPEED)
 
         payload = {
             "book_id": book_id,
             "pdf_path": str(pdf_path),
-            "language": lang_code,
             "voice": voice,
             "speed": float(speed),
         }
@@ -427,11 +419,12 @@ def add_book_page():
         text_path = result["text_path"]
         duration = result.get("duration", "00:00:00")
         total_pages = result.get("total_pages", 0)
+        language_label = result.get("language", language)
 
         #save book in library
         st.session_state.library[book_id] = {
             "title": book_title,
-            "language": language,
+            "language": language_label,
             "date_added": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "pdf_path": str(pdf_path).replace("\\","/"),
             "audio_path": audio_path,
@@ -502,7 +495,7 @@ def player_page():
         st.markdown("<h2>📄 Book Preview</h2>", unsafe_allow_html=True)
         pdf_path = book_data.get("pdf_path")
         if pdf_path and Path(pdf_path).exists():
-            show_pdf_inline(book_data[pdf_path])
+            show_pdf_inline(book_data["pdf_path"])
         else:
             st.info("No PDF preview available.")
 
@@ -517,7 +510,7 @@ def player_page():
         st.markdown(
             f"""
             <div class="book-card">
-                <p>🌍 <strong>Language:</strong> {book_data['language']}</p>
+                <p>🌍 <strong>Language:</strong> {book_data.get('language', AUDIOBOOK_LANGUAGE)}</p>
                 <p>📅 <strong>Added:</strong> {book_data['date_added']}</p>
                 <p>📄 <strong>Pages:</strong> {total_pages}</p>
                 <p>⏱ <strong>Duration (est):</strong> {duration}</p>

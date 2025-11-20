@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict
 
+import time
 import requests
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -122,7 +123,8 @@ async def upload_pdf(file: UploadFile = File(...)) -> Dict[str, Any]:
     if len(contents) > max_bytes:
         raise HTTPException(status_code=400, detail="File too large")
 
-    pdf_path = pdf_dir / file.filename
+    ts = int(time.time())
+    pdf_path = pdf_dir / f"{ts}_{file.filename}"
     with pdf_path.open("wb") as f:
         f.write(contents)
 
@@ -145,7 +147,8 @@ def create_audiobook(request: CreateAudiobookRequest) -> Dict[str, Any]:
     payload = {
         "book_id": request.book_id,
         "pdf_path": request.pdf_path,
-        "language": request.language,
+        # language currently fixed deeper in the stack (AUDIOBOOK_LANGUAGE),
+        # but we forward it in case of future use
         "voice": request.voice,
         "speed": request.speed,
     }
